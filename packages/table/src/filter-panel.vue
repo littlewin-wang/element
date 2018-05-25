@@ -20,6 +20,7 @@
           :class="{ 'is-disabled': filteredValue.length === 0 }"
           :disabled="filteredValue.length === 0">{{ t('el.table.confirmFilter') }}</button>
         <button @click="handleReset">{{ t('el.table.resetFilter') }}</button>
+        <button @click="handleAll">全选</button>
       </div>
     </div>
     <div
@@ -101,6 +102,17 @@
 
       handleReset() {
         this.filteredValue = [];
+        this.confirmFilter(this.filteredValue);
+        this.handleOutsideClick();
+      },
+
+      handleAll() {
+        this.filteredValue = [];
+        this.filters.forEach(filter => {
+          if ((typeof filter.value !== 'undefined') && (filter.value !== null)) {
+            this.filteredValue.push(filter.value);
+          }
+        });
         this.confirmFilter(this.filteredValue);
         this.handleOutsideClick();
       },
