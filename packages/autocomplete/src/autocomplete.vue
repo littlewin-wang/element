@@ -9,15 +9,15 @@
   >
     <el-input
       ref="input"
-      v-bind="$props"
+      v-bind="[$props, $attrs]"
       @input="handleChange"
       @focus="handleFocus"
       @blur="handleBlur"
+      @clear="handleClear"
       @keydown.up.native.prevent="highlight(highlightedIndex - 1)"
       @keydown.down.native.prevent="highlight(highlightedIndex + 1)"
       @keydown.enter.native="handleKeyEnter"
       @keydown.native.tab="close"
-      :label="label"
     >
       <template slot="prepend" v-if="$slots.prepend">
         <slot name="prepend"></slot>
@@ -36,6 +36,7 @@
       visible-arrow
       :class="[popperClass ? popperClass : '']"
       :popper-options="popperOptions"
+      :append-to-body="popperAppendToBody"
       ref="suggestions"
       :placement="placement"
       :id="id">
@@ -70,6 +71,8 @@
 
     mixins: [Emitter, Focus('input'), Migrating],
 
+    inheritAttrs: false,
+
     componentName: 'ElAutocomplete',
 
     components: {
@@ -87,6 +90,10 @@
       popperClass: String,
       popperOptions: Object,
       placeholder: String,
+      clearable: {
+        type: Boolean,
+        default: false
+      },
       disabled: Boolean,
       name: String,
       size: String,
@@ -115,7 +122,11 @@
         type: String,
         default: 'bottom-start'
       },
-      hideLoading: Boolean
+      hideLoading: Boolean,
+      popperAppendToBody: {
+        type: Boolean,
+        default: true
+      }
     },
     data() {
       return {
@@ -186,6 +197,10 @@
       },
       handleBlur(event) {
         this.$emit('blur', event);
+      },
+      handleClear() {
+        this.activated = false;
+        this.$emit('clear');
       },
       close(e) {
         this.activated = false;

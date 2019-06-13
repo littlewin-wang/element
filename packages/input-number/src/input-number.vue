@@ -29,6 +29,7 @@
     <el-input
       ref="input"
       :value="currentInputValue"
+      :placeholder="placeholder"
       :disabled="inputNumberDisabled"
       :size="inputNumberSize"
       :max="max"
@@ -40,12 +41,6 @@
       @blur="handleBlur"
       @focus="handleFocus"
       @change="handleInputChange">
-      <template slot="prepend" v-if="$slots.prepend">
-        <slot name="prepend"></slot>
-      </template>
-      <template slot="append" v-if="$slots.append">
-        <slot name="append"></slot>
-      </template>
     </el-input>
   </div>
 </template>
@@ -97,6 +92,7 @@
       },
       name: String,
       label: String,
+      placeholder: String,
       precision: {
         type: Number,
         validator(val) {
@@ -149,7 +145,7 @@
         }
       },
       controlsAtRight() {
-        return this.controlsPosition === 'right';
+        return this.controls && this.controlsPosition === 'right';
       },
       _elFormItemSize() {
         return (this.elFormItem || {}).elFormItemSize;
@@ -237,6 +233,9 @@
         if (!isNaN(newVal) || value === '') {
           this.setCurrentValue(newVal);
         }
+      },
+      select() {
+        this.$refs.input.select();
       }
     },
     mounted() {

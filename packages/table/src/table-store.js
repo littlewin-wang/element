@@ -1,7 +1,8 @@
 import Vue from 'vue';
 import debounce from 'throttle-debounce/debounce';
 import merge from 'element-ui/src/utils/merge';
-import { orderBy, getColumnById, getRowIdentity } from './util';
+import { hasClass, addClass, removeClass } from 'element-ui/src/utils/dom';
+import { orderBy, getColumnById, getRowIdentity, getColumnByKey } from './util';
 
 const sortData = (data, states) => {
   const sortingColumn = states.sortingColumn;
@@ -192,6 +193,17 @@ TableStore.prototype.mutations = {
   changeSortCondition(states, options) {
     states.data = sortData((states.filteredData || states._data || []), states);
 
+    const { $el, highlightCurrentRow } = this.table;
+    if ($el && highlightCurrentRow) {
+      const data = states.data;
+      const tr = $el.querySelector('tbody').children;
+      const rows = [].filter.call(tr, row => hasClass(row, 'el-table__row'));
+      const row = rows[data.indexOf(states.currentRow)];
+
+      [].forEach.call(rows, row => removeClass(row, 'current-row'));
+      addClass(row, 'current-row');
+    }
+
     if (!options || !options.silent) {
       this.table.$emit('sort-change', {
         column: this.states.sortingColumn,
@@ -226,17 +238,24 @@ TableStore.prototype.mutations = {
   },
 
   filterChange(states, options) {
-    let { column, values, silent } = options;
+    let { column, values, silent, multi } = options;
     if (values && !Array.isArray(values)) {
       values = [values];
     }
-
-    const prop = column.property;
     const filters = {};
 
-    if (prop) {
-      states.filters[column.id] = values;
-      filters[column.columnKey || column.id] = values;
+    if (multi) {
+      column.forEach(col => {
+        states.filters[col.id] = values;
+        filters[col.columnKey || col.id] = values;
+      });
+    } else {
+      const prop = column.property;
+
+      if (prop) {
+        states.filters[column.id] = values;
+        filters[column.columnKey || column.id] = values;
+      }
     }
 
     let data = states._data;
@@ -483,7 +502,7 @@ TableStore.prototype.cleanSelection = function() {
   }
 };
 
-TableStore.prototype.clearFilter = function() {
+TableStore.prototype.clearFilter = function(columnKeys) {
   const states = this.states;
   const { tableHeader, fixedTableHeader, rightFixedTableHeader } = this.table.$refs;
   let panels = {};
@@ -495,17 +514,36 @@ TableStore.prototype.clearFilter = function() {
   const keys = Object.keys(panels);
   if (!keys.length) return;
 
-  keys.forEach(key => {
-    panels[key].filteredValue = [];
-  });
+  if (typeof columnKeys === 'string') {
+    columnKeys = [columnKeys];
+  }
+  if (Array.isArray(columnKeys)) {
+    const columns = columnKeys.map(key => getColumnByKey(states, key));
+    keys.forEach(key => {
+      const column = columns.find(col => col.id === key);
+      if (column) {
+        panels[key].filteredValue = [];
+      }
+    });
+    this.commit('filterChange', {
+      column: columns,
+      value: [],
+      silent: true,
+      multi: true
+    });
+  } else {
+    keys.forEach(key => {
+      panels[key].filteredValue = [];
+    });
 
-  states.filters = {};
+    states.filters = {};
 
-  this.commit('filterChange', {
-    column: {},
-    values: [],
-    silent: true
-  });
+    this.commit('filterChange', {
+      column: {},
+      values: [],
+      silent: true
+    });
+  }
 };
 
 TableStore.prototype.clearSort = function() {
@@ -575,9 +613,7 @@ TableStore.prototype.setCurrentRowKey = function(key) {
   const data = states.data || [];
   const keysMap = getKeysMap(data, rowKey);
   const info = keysMap[key];
-  if (info) {
-    states.currentRow = info.row;
-  }
+  states.currentRow = info ? info.row : null;
 };
 
 TableStore.prototype.updateCurrentRow = function() {
@@ -587,6 +623,20 @@ TableStore.prototype.updateCurrentRow = function() {
   const oldCurrentRow = states.currentRow;
 
   if (data.indexOf(oldCurrentRow) === -1) {
+    if (states.rowKey && oldCurrentRow) {
+      let newCurrentRow = null;
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        if (item && item[states.rowKey] === oldCurrentRow[states.rowKey]) {
+          newCurrentRow = item;
+          break;
+        }
+      }
+      if (newCurrentRow) {
+        states.currentRow = newCurrentRow;
+        return;
+      }
+    }
     states.currentRow = null;
 
     if (states.currentRow !== oldCurrentRow) {
